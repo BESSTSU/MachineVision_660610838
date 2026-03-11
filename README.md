@@ -1,69 +1,139 @@
-# MachineVision (Food Aesthetic Pairwise)
+# 🍣 Food Attractiveness Rater
 
-โปรเจกต์นี้ใช้โมเดล Siamese เปรียบเทียบว่า "รูปอาหาร A หรือ B ดูน่ากินกว่า"
+โปรเจกต์วิเคราะห์และจัดอันดับ **ความน่ากิน** ของรูปอาหาร โดยใช้ Deep Learning ที่เรียนรู้จากรสนิยมการโหวตของมนุษย์จริงๆ
 
-## Quick Start
+---
 
-1. เข้าโฟลเดอร์โปรเจกต์
+## 📌 Overview
 
-```bash
-cd /home/besstsu/Documents/MachineVision
+โมเดลจำแนกรูปอาหารออกเป็น 2 คลาส:
+- ✅ `attractive` — น่ากิน
+- ❌ `unattractive` — ไม่น่ากิน
+
+รองรับฟีเจอร์:
+- ทำนายความน่ากินของรูปเดี่ยว (`predict_attractiveness`)
+- เปรียบเทียบ 2 รูปพร้อมกราฟ winner (`compare_food_images`)
+
+---
+
+## 🗂️ โครงสร้างโปรเจกต์
+
+```
+MachineVision/
+├── Dataset_for_development/
+│   ├── Questionair Images/       # รูปภาพจาก Questionnaire
+│   ├── Instagram Photos/         # รูปภาพจาก Instagram
+│   ├── data_from_questionaire.csv
+│   └── data_from_intragram.csv
+├── food_classification/
+│   ├── train/
+│   │   ├── attractive/
+│   │   └── unattractive/
+│   └── val/
+│       ├── attractive/
+│       └── unattractive/
+├── models/
+│   ├── food_attractiveness_v2_final.keras
+│   ├── class_names.json
+│   └── model_config.json
+├── food_attractiveness_v3_1.ipynb
+└── README.md
 ```
 
-2. สร้าง virtual environment (แนะนำใช้ `.venv`)
+---
+
+## 📊 แหล่งข้อมูล
+
+| แหล่งข้อมูล | จำนวน | น้ำหนัก | หมายเหตุ |
+|---|---|---|---|
+| 📋 Questionnaire | 500 คู่ (129 คนโหวต) | 1.0 | น้ำหนักสูงสุด |
+| 📸 Instagram | 265 คู่ (5 หมวดอาหาร) | 0.4 | Burger, Dessert, Pizza, Ramen, Sushi |
+| 🤖 Auto-label | ~21,904 รูป | 0.3 | Label อัตโนมัติด้วย Aesthetic Score |
+
+---
+
+## 🤖 Model Architecture
+
+| | v2 | v3 |
+|---|---|---|
+| Backbone | EfficientNetV2S | **EfficientNetV2M** |
+| Input size | 224px | **260px** |
+| Data Augmentation | ❌ | ✅ flip/rotate/zoom/brightness |
+| LR Schedule | Constant | **Cosine Decay** |
+| Label Smoothing | ❌ | ✅ 0.1 |
+| Batch size | 16 | **32** |
+| Epochs (Phase1/Phase2) | 30/20 | **50/30** |
+
+---
+
+## ⚙️ Requirements
+
+- Python **3.10 – 3.12** (TensorFlow ยังไม่รองรับ 3.13+)
+- GPU (แนะนำ) หรือ CPU ก็ได้
+
+### ติดตั้ง
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
+python3 -m venv .venv && source .venv/bin/activate
+pip install "tensorflow[and-cuda]" scikit-learn matplotlib seaborn pandas numpy tqdm streamlit
 ```
 
-3. รันโหมดเปรียบเทียบแบบ interactive
+---
 
-```bash
-python Food_choser.py
+## 🚀 วิธีใช้งาน
+
+### 1. Import และโหลดโมเดล
+
+```python
+import os, json
+import numpy as np
+import tensorflow as tf
+from tensorflow import keras
+import matplotlib.pyplot as plt
+
+BASE_PATH  = '/your/path/to/MachineVision'
+IMG_SIZE   = 260
+
+MODEL_PATH = os.path.join(BASE_PATH, 'models', 'food_attractiveness_v2_final.keras')
+CLASS_JSON = os.path.join(BASE_PATH, 'models', 'class_names.json')
+
+loaded_model = keras.models.load_model(MODEL_PATH)
+with open(CLASS_JSON) as f:
+    CLASS_NAMES = json.load(f)
 ```
 
-4. หรือรันแบบส่ง path รูปผ่าน argument
+### 2. ทำนายรูปเดี่ยว
 
-```bash
-python Food_choser.py \
-  --image-a ./dataset_split_IG/val/images/Burger/320058631_1106504873331527_1104522570667449301_n.jpg \
-  --image-b ./dataset_split_IG/val/images/Pizza/321174604_542695657877364_2475541234582595236_n.jpg
+```python
+result = predict_attractiveness('path/to/food.jpg', model=loaded_model)
+print(result)
+# {'label': 'attractive', 'confidence': 0.87, 'all_probs': {...}}
 ```
 
-## Train Model
+### 3. เปรียบเทียบ 2 รูป
 
-```bash
-python trainer.py
+```python
+r1, r2 = compare_food_images('food1.jpg', 'food2.jpg', model=loaded_model)
 ```
 
-ไฟล์โมเดลผลลัพธ์จะถูกบันทึกเป็น `food_aesthetic_v7_master.keras`
+ผลลัพธ์จะแสดง 3 panel: รูป 1, รูป 2, และ bar chart เปรียบเทียบ score พร้อมประกาศ 🏆 Winner
 
-## Notes
+---
 
-- ต้องรันจาก environment ที่มี TensorFlow (`.venv` ตามตัวอย่าง)
-- ถ้าเคยใช้ `venv/` เดิมแล้วขึ้น `ModuleNotFoundError: tensorflow` ให้สลับมาใช้ `.venv` หรือ install ใหม่ตาม `requirements.txt`
-- `Food_choser.py` โหลดโมเดลจาก `food_aesthetic_v7_master.keras` โดยอิง path ตามตำแหน่งไฟล์อัตโนมัติ
+## 📈 Training Pipeline
 
-## Before RUN
-ขั้นตอนเทรนใหม่ทุกครั้ง
-1. เปิด VS Code จาก WSL Terminal
-bashcd ~/Documents/MachineVision
-source .venv/bin/activate
-code .
-2. เลือก Kernel ให้ถูก
+| Step | รายละเอียด |
+|---|---|
+| Phase 1 | Freeze backbone — train classifier head เท่านั้น |
+| Phase 2 | Unfreeze backbone บางส่วน — fine-tune ทั้งโมเดล |
+| Loss | Categorical Crossentropy + Label Smoothing 0.1 |
+| Optimizer | Adam + Cosine Decay LR |
+| Callbacks | EarlyStopping, ModelCheckpoint, ReduceLROnPlateau |
 
-มุมบนขวาของ notebook → "Python 3 (venv) (Python 3.12.3)"
+---
 
-3. รัน Cell ตามลำดับ
+## 📝 หมายเหตุ
 
-Ctrl+Shift+P → "Restart Kernel and Run All Cells" — รันทีเดียวจบเลย
-
-
-ถ้าอยากเทรนใหม่ตั้งแต่ต้น (ล้างของเก่า)
-bash# ลบโมเดลและ dataset split เก่าออก
-rm -rf ~/Documents/MachineVision/models_v2
-rm -rf ~/Documents/MachineVision/food_classification_v2
-แล้วรัน notebook ใหม่ทั้งหมด
+- หลังจาก WSL restart ต้อง import library และ define ฟังก์ชันใหม่ทุกครั้ง (โมเดลที่ save ไว้ใน disk ไม่หาย)
+- `class_names.json` สำคัญมาก — อย่าลบหรือเปลี่ยนชื่อ
+- ถ้าเปลี่ยนชื่อไฟล์ `.keras` ต้องแก้ `MODEL_PATH` ตอน load ให้ตรงกันด้วย
