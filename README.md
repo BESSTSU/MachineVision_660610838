@@ -33,7 +33,7 @@ MachineVision/
 │       ├── attractive/
 │       └── unattractive/
 ├── models/
-│   ├── food_attractiveness_v2_final.keras
+│   ├── food_aesthetic_v14.keras
 │   ├── class_names.json
 │   └── model_config.json
 ├── food_attractiveness_v3_1.ipynb
@@ -94,7 +94,7 @@ import matplotlib.pyplot as plt
 BASE_PATH  = '/your/path/to/MachineVision'
 IMG_SIZE   = 260
 
-MODEL_PATH = os.path.join(BASE_PATH, 'models', 'food_attractiveness_v2_final.keras')
+MODEL_PATH = os.path.join(BASE_PATH, 'models', 'food_aesthetic_v14.keras')
 CLASS_JSON = os.path.join(BASE_PATH, 'models', 'class_names.json')
 
 loaded_model = keras.models.load_model(MODEL_PATH)
