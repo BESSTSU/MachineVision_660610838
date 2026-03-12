@@ -131,7 +131,49 @@ r1, r2 = compare_food_images('food1.jpg', 'food2.jpg', model=loaded_model)
 | Callbacks | EarlyStopping, ModelCheckpoint, ReduceLROnPlateau |
 
 ---
+---------------------------ถ้ามีfolder รูปเเละ csv-------------------------
+import pandas as pd
+from tqdm import tqdm
 
+# ── ตั้งค่า ─────────────────────────────────────────────────────────
+CSV_IN   = '/home/besstsu/Documents/MachineVision/Test Set 1_268/Test Set 1/test.csv'
+CSV_OUT  = '/home/besstsu/Documents/MachineVision/Test Set 1_268/test_predict.csv'
+IMG_DIR  = '/home/besstsu/Documents/MachineVision/Test Set 1_268/Test Set 1/Test Images'  # ← โฟลเดอร์รูป
+
+# ── โหลด CSV ────────────────────────────────────────────────────────
+df = pd.read_csv(CSV_IN)
+
+results = []
+for _, row in tqdm(df.iterrows(), total=len(df)):
+    p1 = os.path.join(IMG_DIR, row['Image 1'])
+    p2 = os.path.join(IMG_DIR, row['Image 2'])
+
+    try:
+        r1 = predict_attractiveness(p1, model=loaded_model)
+        r2 = predict_attractiveness(p2, model=loaded_model)
+        s1 = r1['all_probs']['attractive']
+        s2 = r2['all_probs']['attractive']
+        pred_winner = 1 if s1 >= s2 else 2
+        conf        = abs(s1 - s2)
+    except Exception as e:
+        s1 = s2 = pred_winner = conf = None
+
+    results.append({
+        'Image 1'     : row['Image 1'],
+        'Image 2'     : row['Image 2'],
+        'True Winner' : row['Winner'],
+        'score_img1'  : round(s1, 4) if s1 else None,
+        'score_img2'  : round(s2, 4) if s2 else None,
+        'pred_winner' : pred_winner,
+        'conf'        : round(conf, 4) if conf else None,
+    })
+
+df_out = pd.DataFrame(results)
+df_out.to_csv(CSV_OUT, index=False)
+print(f"✓ บันทึกแล้ว: {CSV_OUT}")
+print(df_out.head())
+
+----------------------------------------------------------------------
 ## 📝 หมายเหตุ
 
 - หลังจาก WSL restart ต้อง import library และ define ฟังก์ชันใหม่ทุกครั้ง (โมเดลที่ save ไว้ใน disk ไม่หาย)
